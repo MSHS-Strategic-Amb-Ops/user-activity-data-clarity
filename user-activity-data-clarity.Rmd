@@ -1,0 +1,220 @@
+---
+title: "user-activity-data-clarity"
+author: "Riya"
+date: "2024-08-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# # Load packages -----------------------------------------------------------------------------------
+suppressMessages({
+  memory.limit(size = 8000000)
+  library(readxl)
+  library(writexl)
+  library(plyr)
+  library(dplyr)
+  library(data.table)
+  library(zoo)
+  library(shiny)
+  library(shinydashboard)
+  library(shinydashboardPlus)
+  library(shinyWidgets)
+  library(htmlwidgets)
+  library(lubridate)
+  library(tcltk)
+  library(tidyverse)
+  library(plotly)
+  library(knitr)
+  library(kableExtra)
+  library(leaflet)
+  library(grid)
+  library(gridExtra)
+  library(eeptools)
+  library(ggQC)
+  library(zipcodeR)
+  library(utils)
+  library(scales)
+  library(chron)
+  library(bupaR)
+  library(shiny)
+  library(DT)
+  library(DiagrammeR)
+  library(shinyalert)
+  library(edeaR)
+  library(processmapR)
+  library(processmonitR)
+  library(processanimateR)
+  library(tidyr)
+  library(lubridate)
+  library(RColorBrewer)
+  library(DiagrammeR)
+  library(ggplot2)
+  library(leaflet)
+  library(readr)
+  library(highcharter)
+  library(ggforce) # for 'geom_arc_bar'
+  library(packcircles) # for packed circle graph
+  library(viridis)
+  library(ggiraph)
+  library(treemapify)
+  library(treemap)
+  library(broom)
+  library(extrafont)
+  library(tis) # for US holidays
+  library(vroom)
+  library(sjmisc)
+  library(tools)
+  library(here)
+  library(shinyBS)
+  library(shinyscreenshot)
+  library(fasttime)
+  library(shinycssloaders)
+  library(feather)
+  # library(zipcodeR)
+  library(formattable)
+  library(shinyjs)
+  library(janitor)
+  library(patchwork)
+  library(flexdashboard)
+  # library(tidyverse)
+  # library(viridis)
+  # library(hrbrthemes)
+  # library(plotly)
+  # install.packages("bsts")
+  library(bsts)
+  library(reactable)
+  # install.packages("reactablefmtr")
+  library(reactablefmtr)
+  library(svDialogs)
+  # library(openxlsx)
+  library(flextable)
+  library(officedown)
+  library(officer)
+  library(magrittr)
+  library(webshot) 
+  library(png)
+  library(ggh4x)
+  library(RODBC)
+  library(DBI)
+  library(odbc)
+  library(dbplyr)
+  library(pool)
+  library(emojifont)
+  library(glue)
+  library(tidyverse)
+})
+
+```
+
+
+```{r Workstation Mapping, echo = FALSE, warning = FALSE, message = FALSE}
+
+### Join for workstation ID and primary department ID, department name & site details
+
+workstation_drop <- glue("DROP TABLE PROD_WORKSTATION_MAPPING")
+workstation_query <- glue("CREATE TABLE PROD_WORKSTATION_MAPPING AS
+                          SELECT a.*, b.WORKSTATION_ID, b.PRIM_DEPARTMENT_ID 
+                          FROM
+                          (SELECT * FROM DEV_WORKSTATION_MAPPING) a
+                          LEFT JOIN (SELECT * FROM CLARITY_LWS) b
+                          ON a.WORKSTN_IDENTIFIER = b.WORKSTN_IDENTIFIER;
+                          ")
+
+
+### only filtering for workstations that are mapped in Epic
+
+workstation_mapping_subset_drop <- glue("DROP TABLE WORKSTATION_MAPPING_SUBSET")
+workstation_mapping_subset_query <- glue("CREATE TABLE WORKSTATION_MAPPING_SUBSET AS
+                                         SELECT DISTINCT WORKSTATION_ID
+                                         FROM PROD_WORKSTATION_MAPPING
+                                         WHERE WORKSTN_IDENTIFIER IS NOT NULL")
+
+```
+
+
+```{r User Activity Data Mapping, echo = FALSE, warning = FALSE, message = FALSE}
+
+## Retreive user activity data for workstations mapped -------------------------
+## Map Provider Type on User ID -----------------------
+## Flag/Filter activities not representing actual visits in room --------------
+
+
+user_activity_drop <- glue("DROP TABLE USER_ACTIVITY_HOUR_TABLE")
+user_activity_query <- glue("CREATE TABLE USER_ACTIVITY_HOUR_TABLE AS
+                            SELECT i.*, j.CAMPUS, j.BUILDING_ADDRESS, j.FLOOR_SUITE, j.ROOM, j.DEPT_NO,
+                            j.WORKSTN_IDENTIFIER, j.TYPE_NAME, j.WORKSTN_OWNER, j.LEASED_OR_OWNED, j.HOSPITAL_OR_NONHOSPITAL,
+                            j.PRIM_DEPARTMENT_ID, j.WORKSTN_NOTES, j.SQR_FT, j.OUTOFSERVICE_OR_UNDERCONSTRUCTION, j.LEASE_START_DATE,
+                            j.LEASE_END_DATE, j.ASSIGN_START_DATE, j.ASSIGN_END_DATE,
+                            CASE WHEN TO_CHAR(i.ACTIVITY_HOUR_DTTM, 'YYYY-MM-DD') = TO_CHAR(i.CONTACT_DATE, 'YYYY-MM-DD') THEN 'Yes' ELSE 'No' END AS VALID_ACTIVITY
+                            FROM
+                            (SELECT g.*, h.PROV_TYPE_SCHEDULING
+                            FROM
+                            (SELECT e.*, f.DEPARTMENT_ID, f.DEPARTMENT_NAME, f.PROV_NAME_WID, f.PROV_ID_SCHEDULING, f.SITE, 
+                            f.DEPT_SPECIALTY_NAME, f.LOC_NAME, f.CONTACT_DATE, f.DERIVED_STATUS_DESC, f.CHECKIN_DTTM, f.ROOMED_DTTM, f.VISIT_END_DTTM,
+                            f.CHECKOUT_DTTM, f.CYCLE_TIME_MINUTES, f.TIME_IN_ROOM_MINUTES, f.MRN, f.APPT_DTTM, f.VISIT_METHOD, f.VISIT_GROUP_NUM
+                            FROM
+                            (SELECT c.*, d.PROV_ID_USER, d.PROV_TYPE_USER, d.PROV_NAME_USER
+                            FROM
+                            (SELECT a.* FROM 
+                            ((SELECT * FROM UAL_ACTIVITY_HOURS WHERE TO_CHAR(ACTIVITY_HOUR_DTTM,'YYYY-MM-DD') = '2024-03-04') a
+                            LEFT JOIN (SELECT * FROM PROD_WORKSTATION_MAPPING) b
+                            ON a.WORKSTATION_ID = b.WORKSTATION_ID)) c
+                            LEFT JOIN 
+                            (SELECT USER_ID, PROV_ID AS PROV_ID_USER, PROV_NAME AS PROV_NAME_USER, PROV_TYPE AS PROV_TYPE_USER FROM CLARITY_SER) d
+                            ON c.USER_ID = d.USER_ID) e
+                            LEFT JOIN 
+                            (SELECT PAT_ENC_CSN_ID, DEPARTMENT_ID, DEPARTMENT_NAME, PROV_NAME_WID, PROV_ID AS PROV_ID_SCHEDULING,
+                            SITE, DEPT_SPECIALTY_NAME, LOC_NAME, CONTACT_DATE, DERIVED_STATUS_DESC,
+                            CHECKIN_DTTM, ROOMED_DTTM, VISIT_END_DTTM, CHECKOUT_DTTM, CYCLE_TIME_MINUTES, TIME_IN_ROOM_MINUTES,
+                            MRN, APPT_DTTM, VISIT_METHOD, VISIT_GROUP_NUM
+                            FROM MV_DM_PATIENT_ACCESS) f
+                            ON e.PAT_ENC_CSN_ID = f.PAT_ENC_CSN_ID) g
+                            LEFT JOIN 
+                            (SELECT PROV_ID, PROV_TYPE AS PROV_TYPE_SCHEDULING FROM CLARITY_SER) h
+                            ON g.PROV_ID_SCHEDULING = h.PROV_ID) i
+                            LEFT JOIN 
+                            (SELECT CAMPUS, BUILDING_ADDRESS, FLOOR_SUITE, ROOM, DEPT_NO,
+                            WORKSTN_IDENTIFIER, TYPE_NAME, WORKSTN_OWNER, LEASED_OR_OWNED, HOSPITAL_OR_NONHOSPITAL,
+                            WORKSTATION_ID, PRIM_DEPARTMENT_ID, WORKSTN_NOTES, SQR_FT, OUTOFSERVICE_OR_UNDERCONSTRUCTION, LEASE_START_DATE,
+                            LEASE_END_DATE, ASSIGN_START_DATE, ASSIGN_END_DATE
+                            FROM PROD_WORKSTATION_MAPPING) j
+                            ON i.WORKSTATION_ID = j.WORKSTATION_ID
+                            WHERE CASE WHEN TO_CHAR(i.ACTIVITY_HOUR_DTTM, 'YYYY-MM-DD') = TO_CHAR(i.CONTACT_DATE, 'YYYY-MM-DD') THEN 'Yes' ELSE 'No' END = 'Yes';
+                            ")
+
+
+
+```
+
+
+```{r Write to Oracle, echo = FALSE, warning = FALSE, message = FALSE}
+
+## Grouped Table execution
+tryCatch({
+  conn1 <- dbConnect(drv = odbc(), "OAO Cloud DB SoYoun", timeout = 30)
+  dbBegin(conn1)
+   if(dbExistsTable(conn1, "PROD_WORKSTATION_MAPPING")){
+   dbExecute(conn1, workstation_drop) 
+   }
+   if(dbExistsTable(conn1, "WORKSTATION_MAPPING_SUBSET")){
+     dbExecute(conn1, workstation_mapping_subset_drop) 
+   }
+     dbExecute(conn1, workstation_mapping_subset_query) 
+    if(dbExistsTable(conn1, "USER_ACTIVITY_HOUR_TABLE")){
+      dbExecute(conn1, user_activity_drop) 
+    }
+    dbExecute(conn1, user_activity_query)  
+     
+  dbCommit(conn1)
+  dbDisconnect(conn1)
+  print("success")
+  
+},
+error = function(err){
+  print(paste("Error staging:", err$message))
+  dbRollback(conn1)
+  dbDisconnect(conn1)
+})
+
+
+```
