@@ -104,7 +104,8 @@ tryCatch({
   conn1 <- dbConnect(drv = odbc(), "OAO Cloud DB SoYoun", timeout = 30)
   dbBegin(conn1)
    if(dbExistsTable(conn1, "PROD_WORKSTATION_MAPPING")){
-   dbExecute(conn1, workstation_drop) 
+   dbExecute(conn1, workstation_drop)
+   dbExecute(conn1, workstation_query)  
    }
    if(dbExistsTable(conn1, "WORKSTATION_MAPPING_SUBSET")){
      dbExecute(conn1, workstation_mapping_subset_drop) 
