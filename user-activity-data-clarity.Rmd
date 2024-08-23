@@ -103,18 +103,18 @@ user_activity_query <- glue("CREATE TABLE USER_ACTIVITY_HOUR_TABLE AS
 tryCatch({
   conn1 <- dbConnect(drv = odbc(), "OAO Cloud DB SoYoun", timeout = 30)
   dbBegin(conn1)
-   if(dbExistsTable(conn1, "PROD_WORKSTATION_MAPPING")){
-   dbExecute(conn1, workstation_drop)
-   dbExecute(conn1, workstation_query)  
+    if(dbExistsTable(conn1, "PROD_WORKSTATION_MAPPING")){
+     dbExecute(conn1, workstation_drop)
    }
-   if(dbExistsTable(conn1, "WORKSTATION_MAPPING_SUBSET")){
+     dbExecute(conn1, workstation_query) 
+    if(dbExistsTable(conn1, "WORKSTATION_MAPPING_SUBSET")){
      dbExecute(conn1, workstation_mapping_subset_drop) 
    }
      dbExecute(conn1, workstation_mapping_subset_query) 
     if(dbExistsTable(conn1, "USER_ACTIVITY_HOUR_TABLE")){
       dbExecute(conn1, user_activity_drop) 
     }
-    dbExecute(conn1, user_activity_query)  
+      dbExecute(conn1, user_activity_query)  
      
   dbCommit(conn1)
   dbDisconnect(conn1)
