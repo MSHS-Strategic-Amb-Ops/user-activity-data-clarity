@@ -156,7 +156,7 @@ user_activity_query <- glue("CREATE TABLE USER_ACTIVITY_HOUR_TABLE AS
                             (SELECT c.*, d.PROV_ID_USER, d.PROV_TYPE_USER, d.PROV_NAME_USER
                             FROM
                             (SELECT a.* FROM 
-                            ((SELECT * FROM UAL_ACTIVITY_HOURS WHERE TO_CHAR(ACTIVITY_HOUR_DTTM,'YYYY-MM-DD') = '2024-03-04') a
+                            ((SELECT * FROM UAL_ACTIVITY_HOURS WHERE TO_CHAR(ACTIVITY_HOUR_DTTM,'YYYY') >= '2023') a
                             LEFT JOIN (SELECT * FROM PROD_WORKSTATION_MAPPING) b
                             ON a.WORKSTATION_ID = b.WORKSTATION_ID)) c
                             LEFT JOIN 
