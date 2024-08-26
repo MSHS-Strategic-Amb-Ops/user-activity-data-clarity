@@ -19,7 +19,7 @@ library(pool)
 
 ```{r Workstation Mapping, echo = FALSE, warning = FALSE, message = FALSE}
 
-### Join for workstation ID and primary department ID, department name & site details
+### Join for workstation ID and primary department ID -------------------------
 
 workstation_drop <- glue("DROP TABLE PROD_WORKSTATION_MAPPING")
 workstation_query <- glue("CREATE TABLE PROD_WORKSTATION_MAPPING AS
@@ -31,13 +31,16 @@ workstation_query <- glue("CREATE TABLE PROD_WORKSTATION_MAPPING AS
                           ")
 
 
-### only filtering for workstations that are mapped in Epic
+### creating a subset to only filter for workstations that are mapped in Epic -------------------------
+### Note: Only use this further if we want to filter for only mapped workstations -------------------------
+### Currently we are using 'PROD_WORKSTATION_MAPPING' to get the data for all workstations despite being mapped or not mapped in Epic -------------------------
 
 workstation_mapping_subset_drop <- glue("DROP TABLE WORKSTATION_MAPPING_SUBSET")
 workstation_mapping_subset_query <- glue("CREATE TABLE WORKSTATION_MAPPING_SUBSET AS
                                          SELECT DISTINCT WORKSTATION_ID
                                          FROM PROD_WORKSTATION_MAPPING
                                          WHERE WORKSTN_IDENTIFIER IS NOT NULL")
+
 
 ```
 
@@ -47,6 +50,8 @@ workstation_mapping_subset_query <- glue("CREATE TABLE WORKSTATION_MAPPING_SUBSE
 ## Retreive user activity data for workstations mapped -------------------------
 ## Map Provider Type on User ID -----------------------
 ## Flag/Filter activities not representing actual visits in room --------------
+### This table joins all tables like UAL, Clarity Ser, Access, Prod Workstation Mapping to pull user activity information with all necessary columns --------------
+### Filtering data from 2023 onwards (refer to line 74) --------------
 
 
 user_activity_drop <- glue("DROP TABLE USER_ACTIVITY_HOUR_TABLE")
@@ -99,7 +104,9 @@ user_activity_query <- glue("CREATE TABLE USER_ACTIVITY_HOUR_TABLE AS
 
 ```{r Write to Oracle, echo = FALSE, warning = FALSE, message = FALSE}
 
+### This query is used to autorun all the above queries in a loop and drop and recreate the tables in Oracle. If success, it prints success, if any error it will give out the error message.
 ## Grouped Table execution
+
 tryCatch({
   conn1 <- dbConnect(drv = odbc(), "OAO Cloud DB SoYoun", timeout = 30)
   dbBegin(conn1)
