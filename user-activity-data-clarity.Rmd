@@ -22,14 +22,14 @@ library(pool)
 ### Join for workstation ID and primary department ID -------------------------
 
 workstation_drop <- glue("DROP TABLE PROD_WORKSTATION_MAPPING")
-workstation_query <- glue("CREATE TABLE PROD_WORKSTATION_MAPPING AS
-                            SELECT a.*, 
-                            b.WORKSTATION_ID, b.PRIM_DEPARTMENT_ID 
-                          FROM
-                            (SELECT * FROM DEV_WORKSTATION_MAPPING) a
-                            LEFT JOIN (SELECT * FROM CLARITY_LWS) b
-                            ON a.WORKSTN_IDENTIFIER = b.WORKSTN_IDENTIFIER;
-                          ")
+workstation_query <- glue("
+CREATE TABLE PROD_WORKSTATION_MAPPING AS
+SELECT a.*, b.WORKSTATION_ID, b.PRIM_DEPARTMENT_ID 
+FROM
+  (SELECT * FROM DEV_WORKSTATION_MAPPING) a
+  LEFT JOIN (SELECT * FROM CLARITY_LWS) b
+  ON a.WORKSTN_IDENTIFIER = b.WORKSTN_IDENTIFIER;
+")
 
 
 ### creating a subset to only filter for workstations that are mapped in Epic -------------------------
@@ -37,10 +37,12 @@ workstation_query <- glue("CREATE TABLE PROD_WORKSTATION_MAPPING AS
 ### Currently we are using 'PROD_WORKSTATION_MAPPING' to get the data for all workstations despite being mapped or not mapped in Epic -------------------------
 
 workstation_mapping_subset_drop <- glue("DROP TABLE WORKSTATION_MAPPING_SUBSET")
-workstation_mapping_subset_query <- glue("CREATE TABLE WORKSTATION_MAPPING_SUBSET AS
-                                            SELECT DISTINCT WORKSTATION_ID
-                                            FROM PROD_WORKSTATION_MAPPING
-                                            WHERE WORKSTN_IDENTIFIER IS NOT NULL")
+workstation_mapping_subset_query <- glue("
+CREATE TABLE WORKSTATION_MAPPING_SUBSET AS
+SELECT DISTINCT WORKSTATION_ID
+FROM PROD_WORKSTATION_MAPPING
+  WHERE WORKSTN_IDENTIFIER IS NOT NULL
+")
 
 
 ```
@@ -58,8 +60,7 @@ workstation_mapping_subset_query <- glue("CREATE TABLE WORKSTATION_MAPPING_SUBSE
 user_activity_drop <- glue("DROP TABLE USER_ACTIVITY_HOUR_TABLE")
 user_activity_query <- glue("
 CREATE TABLE USER_ACTIVITY_HOUR_TABLE AS
-SELECT i.*, 
-j.CAMPUS, j.BUILDING_ADDRESS, j.FLOOR_SUITE, j.ROOM, j.DEPT_NO,
+SELECT i.*, j.CAMPUS, j.BUILDING_ADDRESS, j.FLOOR_SUITE, j.ROOM, j.DEPT_NO,
 j.WORKSTN_IDENTIFIER, j.TYPE_NAME, j.WORKSTN_OWNER, j.LEASED_OR_OWNED, j.HOSPITAL_OR_NONHOSPITAL,
 j.PRIM_DEPARTMENT_ID, j.WORKSTN_NOTES, j.SQR_FT, j.OUTOFSERVICE_OR_UNDERCONSTRUCTION, j.LEASE_START_DATE,
 j.LEASE_END_DATE, j.ASSIGN_START_DATE, j.ASSIGN_END_DATE,
